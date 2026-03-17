@@ -1,65 +1,43 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from PIL import Image
+import os
 
-# --- CONFIGURAZIONE PAGINA (Qui cambi Nome e Icona) ---
+# --- CARICAMENTO LOGO ---
+# Verifichiamo se il file esiste per evitare errori
+logo_path = "logo.png" 
+
+if os.path.exists(logo_path):
+    img = Image.open(logo_path)
+    page_icon = img
+else:
+    page_icon = "🔥" # Icona di riserva se il file non viene trovato
+
+# --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(
-    page_title="Gestione Pratiche Incendi", # Il nome che appare sulla scheda del browser
-    page_icon="👨‍🚒",                         # L'icona (puoi mettere: 🔥, 🚒, 📋, o 🏢)
+    page_title="Gestione Pratiche Incendi",
+    page_icon=page_icon,
     layout="wide"
 )
 
-st.title("🔥 Registro Professionale Prevenzione Incendi")
+# --- MOSTRA IL LOGO IN ALTO ---
+if os.path.exists(logo_path):
+    # Puoi regolare la larghezza (width) come preferisci
+    st.image(logo_path, width=150)
 
-# --- IL RESTO DEL CODICE RIMANE UGUALE ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(ttl=0)
+st.title("Registro Professionale Prevenzione Incendi")
 
-if df is None or df.empty:
-    df = pd.DataFrame(columns=["Data", "Cliente", "Tipologia", "Attività", "Ore", "Tariffa", "Totale", "Stato"])
+# --- NASCONDI ELEMENTI STREAMLIT (Per un look pulito) ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            /* Rimuove lo spazio bianco in alto */
+            .block-container {padding-top: 2rem;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# --- BARRA LATERALE ---
-with st.sidebar.form("Aggiungi"):
-    st.header("✍️ Nuova Prestazione")
-    data = st.date_input("Data")
-    cliente = st.text_input("Cliente/Condominio")
-    tipologia = st.text_input("Tipologia")
-    attivita = st.text_input("Attività")
-    ore = st.number_input("Ore lavorate", min_value=0.5, step=0.5)
-    tariffa = st.number_input("Tariffa €/ora", value=50.0)
-    stato = st.selectbox("Stato Pagamento", ["❌ Non Pagata", "💰 Pagata"])
-    submit = st.form_submit_button("Salva nel Cloud")
-
-if submit and cliente:
-    nuova_riga = pd.DataFrame([{
-        "Data": str(data),
-        "Cliente": cliente,
-        "Tipologia": tipologia,
-        "Attività": attivita,
-        "Ore": float(ore),
-        "Tariffa": float(tariffa),
-        "Totale": float(ore * tariffa),
-        "Stato": stato
-    }])
-    df_aggiornato = pd.concat([df, nuova_riga], ignore_index=True)
-    conn.update(data=df_aggiornato)
-    st.success("Dato salvato!")
-    st.rerun()
-
-# --- TABELLA E GESTIONE ---
-if not df.empty:
-    # Calcoli
-    df["Ore"] = pd.to_numeric(df["Ore"], errors='coerce').fillna(0)
-    df["Totale"] = pd.to_numeric(df["Totale"], errors='coerce').fillna(0)
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Ore Totali", f"{df['Ore'].sum()} h")
-    c2.metric("Da Incassare", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
-    c3.metric("Incassato", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
-    
-    st.divider()
-    st.subheader("📋 Elenco Prestazioni")
-    st.dataframe(df, use_container_width=True)
-    
-    # Sezione eliminazione e aggiornamento (come prima)...
-    # [Il codice per aggiornare/eliminare segue qui sotto]
+# ... (Qui prosegue il resto del codice per Google Sheets che abbiamo già scritto)
