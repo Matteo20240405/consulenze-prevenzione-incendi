@@ -9,10 +9,20 @@ st.set_page_config(page_title="Gestione Pratiche Incendi", layout="wide")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
+    # Lettura dati
     df = conn.read(ttl=0)
     
+    # Lista delle colonne necessarie
+    colonne_richieste = ["Data", "Cliente", "Attività", "Ore", "Tariffa Oraria", "Totale", "Stato"]
+    
+    # Se il foglio è vuoto o mancano colonne, lo inizializziamo correttamente
     if df is None or df.empty:
-        df = pd.DataFrame(columns=["Data", "Cliente", "Attività", "Ore", "Tariffa Oraria", "Totale", "Stato"])
+        df = pd.DataFrame(columns=colonne_richieste)
+    else:
+        # Verifica se tutte le colonne esistono, altrimenti le aggiunge vuote
+        for col in colonne_richieste:
+            if col not in df.columns:
+                df[col] = 0 if col in ["Ore", "Tariffa Oraria", "Totale"] else ""
 
     st.title("🔥 Registro Professionale Prevenzione Incendi")
 
@@ -47,51 +57,49 @@ try:
                 else:
                     st.error("Inserisci il nome del cliente.")
 
-    # --- 4. CALCOLI E METRICHE ---
+    # --- 4. CALCOLI E METRICHE (TOTALI E PROFITTI) ---
     if not df.empty:
         st.divider()
-        # Conversione sicura dei dati numerici
+        # Conversione sicura per evitare errori di calcolo
         df["Ore"] = pd.to_numeric(df["Ore"], errors='coerce').fillna(0)
         df["Tariffa Oraria"] = pd.to_numeric(df["Tariffa Oraria"], errors='coerce').fillna(0)
         df["Totale"] = pd.to_numeric(df["Totale"], errors='coerce').fillna(0)
 
         m1, m2, m3 = st.columns(3)
-        m1.metric("Ore Totali Lavorate", f"{df['Ore'].sum()} h")
-        m2.metric("Crediti (Da Incassare)", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
-        m3.metric("Profitti (Incassato)", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
+        m1.metric("Ore Totali", f"{df['Ore'].sum()} h")
+        m2.metric("Da Incassare", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
+        m3.metric("Incassato (Profitto)", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
 
         st.subheader("📋 Storico Prestazioni")
-        
-        cerca = st.text_input("🔍 Cerca cliente o attività...")
-        df_view = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df
-            
-        st.dataframe(df_view, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-        # --- 5. GESTIONE STATO E CANCELLAZIONE ---
+        # --- 5. GESTIONE PAGAMENTI ED ELIMINAZIONE ---
         st.divider()
         col_pag, col_del = st.columns(2)
 
         with col_pag:
-            st.subheader("✅ Gestione Pagamenti")
+            st.subheader("✅ Segna come Pagato")
             da_pagare = df[df["Stato"] == "❌ Non Pagata"]
             if not da_pagare.empty:
-                idx_p = st.selectbox("Seleziona per segnare come pagato:", da_pagare.index, 
+                idx_p = st.selectbox("Seleziona pratica saldata:", da_pagare.index, 
                                     format_func=lambda x: f"{df.at[x, 'Cliente']} - {df.at[x, 'Totale']}€")
                 if st.button("Conferma Incasso"):
                     df.at[idx_p, "Stato"] = "💰 Pagata"
                     conn.update(data=df)
                     st.rerun()
             else:
-                st.info("Ottimo lavoro! Non ci sono pagamenti in sospeso.")
+                st.info("Nessun pagamento in sospeso.")
 
         with col_del:
             st.subheader("🗑️ Elimina Pratica")
-            idx_e = st.selectbox("Seleziona riga da rimuovere:", df.index, 
+            idx_e = st.selectbox("Seleziona riga da cancellare:", df.index, 
                                 format_func=lambda x: f"{df.at[x, 'Cliente']} ({df.at[x, 'Data']})")
-            if st.button("Elimina Voce", type="primary"):
+            if st.button("Elimina Definitivamente", type="primary"):
                 df = df.drop(idx_e)
                 conn.update(data=df)
+                st.warning("Riga eliminata.")
                 st.rerun()
 
 except Exception as e:
-    st.error(f"Errore di connessione: {e}")
+    st.error(f"Errore di connessione o colonne: {e}")
+    st.info("Se l'errore persiste, prova a rinominare manualmente le colonne del tuo Foglio Google come: Data, Cliente, Attività, Ore, Tariffa Oraria, Totale, Stato")
