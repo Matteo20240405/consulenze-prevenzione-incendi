@@ -22,90 +22,87 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. NASCONDI MENU STREAMLIT ---
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .block-container {padding-top: 1rem;}
-    </style>
-    """, unsafe_allow_html=True)
+# --- 2. INTEGRAZIONE CREDENZIALI DIRETTE ---
+# Nota: In un ambiente di produzione reale, questi dati andrebbero nei 'Secrets', 
+# ma li inserisco qui come richiesto per far funzionare subito l'app.
+creds = {
+    "type": "service_account",
+    "project_id": "gestionale-incendi",
+    "private_key_id": "3794050ab4dd3ab03f1fae6b3e6913e5db3d20de",
+    "private_key": st.secrets.get("private_key", "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCvRztElIINAC73\niVaQCAxbFwYTHVjEfV1GKJEVZMxmen7PsAvYy6pO41tYT0gF6EUfYzApe5Fiy8uE\nudsmhjb15UHeF6cKD+lupPtvV14rQB8PRgg+balm5182ySawr96os/ZLNfFzcF34\n7o3EmPvjQHxmxnlDYNYb6QYotr1QIC/VFee+Y8Zf20LkIBKzbG/dkiBr9J3CiFBs\nachwgYX9F+XjlMpuT+0iLvbAm7uNfareFh4WYrudnxp7PB9Ps8IX6iHfCbj2gkk7\nQWPlYkyZTIr6Mcap+6lRvfDWbaf9RcV+dRl4hpVl4oDzctlIWtyz84yJ0bRILKZd\n2PWGOScfAgMBAAECggEAC8mvFzgjnOs3vWcLnskjx5Z/TpbJKwHBXaAJzdYHFxdC\n4wXUbiKYVBDfSkuerOMHjwpVKV0JlIrfJ5B2SBt7o8Lk0KJnlfom+U14KW9HQoJf\n9F+B22z1mRmTYjRZ+UUCpPbhaAJ7OAfFEiI8/41IV2q1UxYi/qCLFbpwsxlDFxnO\ndoCaS1rvRcDub5Vkk40vGvqpES+f/PmZeDAv19bWsiPkVvAlYC3T70zNV7Cqm2rT\nPabus1nYrsf/EBQtUD6b5ELo2ALiyS6BeEhbEfZa4hqRVOSKNle5bKPhd8LIjCcK\nbvU6G3C2C0ABf7O3bssU55C309McsH5D2xGR1j/zmQKBgQDmLyNo9PNQxqWMJt1s\n5gzYC24fJgmgc1Con5+lCgbgjeEAdThyo95+CBdB/brrX/ILnYfvs5sJ0kRybrDL\nRlxZ9Lq8zkin26XUzWeXWRF1cM7b4kS4vXgaXwmV5j68C1ut0lEXtwNCzB1g0nk3\nAs/GprllViFAZ21EAbzRwBVGlwKBgQDC7634J0I/QEXv3OV5OhbdP9f4zUw9Mdn4\nmwDolwaYQDhoVKGAV78r1ahEFL7RRtC7P9kststLLwOKkU7BD/8Vfj3Sf4E3b4dp\nqsK/qg77yCJpGyDFYqEFGKxGg43IMt/7J2IQhzzIMQs3jZtFQF+DNbQpjUGoq0j2\nTm+NWZh8uQKBgQCY3k1h8ut0hbiD73u2SsHU6SJlRVm3WV4D3p6jeJlAoHkBWNf4\nKqQkhzMK/Hsavkl9NU2F/33DdAVJCgIXvc6vXzx1D3ppIBJt1Uwq01go6pY2qXqC\nRjJxMRSonJSlRdXJBpgca8qanfwUxTMDObbLcwZFKoJCx21lcNH5atu2WQKBgB1l\nfYuth+z36VQJsMU+QFJvHUeU1gloaiF2ZoWsuL7e+GKrWIt9MAQRPUW/ByOSFUoX\nj82RZ0jYNyV/UiwFGIeKORJ0Te0pMXd629GBeK75eE73W1LI09Vr6hbcIdZt7Z73\nSm+JpV3fH3zqKt8fnQexYpDdj2g7JE6Yd3QObdNpAoGACrT6cdFNz4lBcGsNg7Lb\nOcQkf3XG1eza0PbM6Vh1yiQ/GRsYnOZZQH4aKIbNTcH3jQ47gGGmhErgS7hyh3PE\nB7kwNTxBV1deXpgvIZ9Xvk9mToRmkJpMsDqTkQjAL0FIViK53BetGf2IZNh9pFlh\nt5H74X4javFdQ57BwyyZsGs=\n-----END PRIVATE KEY-----\n"),
+    "client_email": "consulenza@gestionale-incendi.iam.gserviceaccount.com",
+    "client_id": "106428390095267440624",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/consulenza%40gestionale-incendi.iam.gserviceaccount.com"
+}
 
-# --- 3. INTESTAZIONE ---
-if os.path.exists(logo_path):
-    st.image(logo_path, width=150)
-
-st.title("🔥 Registro Professionale Prevenzione Incendi")
-st.divider()
-
-# --- 4. CONNESSIONE DATI ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- 3. CONNESSIONE ---
+# Creiamo la connessione usando le credenziali appena integrate
+conn = st.connection("gsheets", type=GSheetsConnection, **creds)
 df = conn.read(ttl=0)
 
 if df is None or df.empty:
     df = pd.DataFrame(columns=["Data", "Cliente", "Tipologia", "Attività", "Ore", "Tariffa", "Totale", "Stato"])
 
-# --- 5. MODULO DI INSERIMENTO (Sempre visibile in alto) ---
-with st.expander("➕ AGGIUNGI NUOVA PRATICA / PRESTAZIONE", expanded=True):
-    with st.form("form_inserimento", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
+# --- 4. INTERFACCIA ---
+if os.path.exists(logo_path):
+    st.image(logo_path, width=150)
+
+st.title("🔥 Registro Professionale Prevenzione Incendi")
+
+# Modulo Inserimento
+with st.expander("➕ AGGIUNGI NUOVA PRESTAZIONE", expanded=True):
+    with st.form("form_nuovo"):
+        c1, c2 = st.columns(2)
         with c1:
             data = st.date_input("Data")
-            cliente = st.text_input("Cliente / Condominio")
+            cliente = st.text_input("Cliente/Condominio")
+            tipologia = st.text_input("Tipologia")
         with c2:
-            tipologia = st.text_input("Tipologia (es. SCIA)")
-            attivita = st.text_input("Dettaglio Attività")
-        with c3:
-            ore = st.number_input("Ore lavorate", min_value=0.5, step=0.5, value=1.0)
+            attivita = st.text_input("Attività")
+            ore = st.number_input("Ore", min_value=0.5, step=0.5, value=1.0)
             tariffa = st.number_input("Tariffa €/ora", value=60.0)
         
-        stato = st.selectbox("Stato Pagamento", ["❌ Non Pagata", "💰 Pagata"])
-        
-        if st.form_submit_button("💾 SALVA NEL CLOUD", use_container_width=True):
+        stato = st.selectbox("Stato", ["❌ Non Pagata", "💰 Pagata"])
+        if st.form_submit_button("💾 SALVA NEL CLOUD"):
             if cliente:
                 nuova_riga = pd.DataFrame([{
-                    "Data": str(data),
-                    "Cliente": cliente,
-                    "Tipologia": tipologia,
-                    "Attività": attivita,
-                    "Ore": float(ore),
-                    "Tariffa": float(tariffa),
-                    "Totale": float(ore * tariffa),
-                    "Stato": stato
+                    "Data": str(data), "Cliente": cliente, "Tipologia": tipologia,
+                    "Attività": attivita, "Ore": float(ore), "Tariffa": float(tariffa),
+                    "Totale": float(ore * tariffa), "Stato": stato
                 }])
                 df = pd.concat([df, nuova_riga], ignore_index=True)
                 conn.update(data=df)
-                st.success(f"✅ Pratica per {cliente} salvata!")
+                st.success("Salvato!")
                 st.rerun()
-            else:
-                st.error("Inserisci il nome del cliente!")
 
 st.divider()
 
-# --- 6. VISUALIZZAZIONE E RICERCA ---
+# Tabella e Ricerca
 if not df.empty:
-    # Calcoli rapidi
     df["Ore"] = pd.to_numeric(df["Ore"], errors='coerce').fillna(0)
     df["Totale"] = pd.to_numeric(df["Totale"], errors='coerce').fillna(0)
-
-    # Metriche di riepilogo
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Ore Totali", f"{df['Ore'].sum()} h")
-    m2.metric("Da Incassare", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
-    m3.metric("Incassato", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
-
-    # Ricerca
-    cerca = st.text_input("🔍 Cerca nel database...", placeholder="Filtra per cliente o attività")
-    if cerca:
-        df_mostra = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)]
-    else:
-        df_mostra = df
-
-    st.subheader("📋 Elenco Prestazioni")
-    st.dataframe(df_mostra, use_container_width=True, hide_index=True)
-
-    # --- 7. MODIFICA E CANCELLAZIONE ---
-    st.divider()
-    col_a, col_b = st.columns(2)
     
+    st.subheader("📋 Elenco Pratiche")
+    cerca = st.text_input("🔍 Cerca...")
+    df_filtered = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df
+    st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+
+    # Azioni rapide
+    col1, col2 = st.columns(2)
+    with col1:
+        non_pagate = df[df["Stato"] == "❌ Non Pagata"]
+        if not non_pagate.empty:
+            idx = st.selectbox("Segna pagato:", non_pagate.index, format_func=lambda x: f"{df.at[x, 'Cliente']} ({df.at[x, 'Totale']}€)")
+            if st.button("Conferma Saldo"):
+                df.at[idx, "Stato"] = "💰 Pagata"
+                conn.update(data=df)
+                st.rerun()
+    with col2:
+        idx_del = st.selectbox("Elimina riga:", df.index, format_func=lambda x: f"{df.at[x, 'Cliente']} - {df.at[x, 'Data']}")
+        if st.button("Elimina", type="primary"):
+            df = df.drop(idx_del)
+            conn.update(data=df)
+            st.rerun()
