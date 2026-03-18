@@ -23,7 +23,6 @@ st.set_page_config(
 )
 
 # --- 2. CREDENZIALI E CONNESSIONE ---
-# Dati del Service Account forniti
 service_info = {
     "type": "service_account",
     "project_id": "gestionale-incendi",
@@ -37,30 +36,25 @@ service_info = {
     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/consulenza%40gestionale-incendi.iam.gserviceaccount.com"
 }
 
-# URL del tuo foglio Google
 SHEET_URL = "https://docs.google.com/spreadsheets/d/12orchamSx43ERvYjZ6VpnFr3dqZRxr6GTMxpIEbKMwM/edit#gid=0"
 
-# Inizializzazione connessione
 conn = st.connection("gsheets", type=GSheetsConnection, service_account_info=service_info)
 
-# Lettura dati
 try:
     df = conn.read(spreadsheet=SHEET_URL, ttl=0)
 except Exception as e:
     st.error(f"Errore di lettura: {e}")
     df = pd.DataFrame()
 
-# Inizializzazione colonne se vuoto
 if df is None or df.empty:
     df = pd.DataFrame(columns=["Data", "Cliente", "Tipologia", "Attività", "Ore", "Tariffa", "Totale", "Stato"])
 
-# --- 3. INTERFACCIA UTENTE ---
+# --- 3. INTERFACCIA ---
 if os.path.exists(logo_path):
     st.image(logo_path, width=150)
 
 st.title("🔥 Registro Professionale Prevenzione Incendi")
 
-# Modulo Inserimento
 with st.expander("➕ AGGIUNGI NUOVA PRESTAZIONE", expanded=True):
     with st.form("form_nuovo", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -84,15 +78,12 @@ with st.expander("➕ AGGIUNGI NUOVA PRESTAZIONE", expanded=True):
                 }])
                 df = pd.concat([df, nuova_riga], ignore_index=True)
                 conn.update(spreadsheet=SHEET_URL, data=df)
-                st.success(f"Pratica per {cliente} salvata!")
+                st.success("Dati salvati!")
                 st.rerun()
-            else:
-                st.error("Inserisci il nome del cliente!")
 
-# Visualizzazione Dati
+# --- 4. VISUALIZZAZIONE ---
 if not df.empty:
     st.divider()
-    # Calcoli per metriche
     df["Ore"] = pd.to_numeric(df["Ore"], errors='coerce').fillna(0)
     df["Totale"] = pd.to_numeric(df["Totale"], errors='coerce').fillna(0)
     
@@ -102,12 +93,29 @@ if not df.empty:
     m3.metric("Incassato", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
 
     st.subheader("📋 Elenco Pratiche")
-    cerca = st.text_input("🔍 Filtra per cliente o attività...")
-    df_filtered = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df
-    st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+    cerca = st.text_input("🔍 Cerca...")
+    df_f = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df
+    st.dataframe(df_f, use_container_width=True, hide_index=True)
 
-    # Gestione Righe
+    # GESTIONE PAGAMENTI ED ELIMINAZIONE
     st.divider()
-    col_p, col_d = st.columns(2)
-    with col_p:
-        non_pagate = df[df
+    col_a, col_b = st.columns(2)
+    
+    with col_a:
+        st.subheader("🔄 Pagamenti")
+        non_pagate = df[df["Stato"] == "❌ Non Pagata"]
+        if not non_pagate.empty:
+            scelta_p = st.selectbox("Segna pagato:", non_pagate.index, format_func=lambda x: f"{df.at[x, 'Cliente']} ({df.at[x, 'Totale']}€)")
+            if st.button("Conferma Saldo"):
+                df.at[scelta_p, "Stato"] = "💰 Pagata"
+                conn.update(spreadsheet=SHEET_URL, data=df)
+                st.rerun()
+    
+    with col_b:
+        st.subheader("🗑️ Elimina")
+        if not df.empty:
+            scelta_d = st.selectbox("Elimina riga:", df.index, format_func=lambda x: f"{df.at[x, 'Cliente']} - {df.at[x, 'Data']}")
+            if st.button("Elimina", type="primary"):
+                df = df.drop(scelta_d)
+                conn.update(spreadsheet=SHEET_URL, data=df)
+                st.rerun()
