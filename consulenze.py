@@ -6,16 +6,13 @@ import pandas as pd
 st.set_page_config(page_title="Gestione Pratiche Incendi", layout="wide")
 
 # --- 2. CONNESSIONE ---
-# Utilizza i Secrets che abbiamo configurato precedentemente
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
-    # Lettura dati in tempo reale
     df = conn.read(ttl=0)
     
-    # Se il foglio è nuovo/vuoto, inizializziamo le colonne corrette
     if df is None or df.empty:
-        df = pd.DataFrame(columns=["Data", "Cliente", "Attività", "Ore", "Tariffa", "Totale", "Stato"])
+        df = pd.DataFrame(columns=["Data", "Cliente", "Attività", "Ore", "Tariffa Oraria", "Totale", "Stato"])
 
     st.title("🔥 Registro Professionale Prevenzione Incendi")
 
@@ -29,7 +26,7 @@ try:
                 attivita = st.text_input("Dettaglio Attività")
             with c2:
                 ore = st.number_input("Ore Lavorate", min_value=0.0, step=0.5, value=1.0)
-                tariffa = st.number_input("Tariffa €/ora", min_value=0.0, step=5.0, value=60.0)
+                tariffa_h = st.number_input("Tariffa Oraria (€/h)", min_value=0.0, step=5.0, value=60.0)
                 stato = st.selectbox("Stato Pagamento", ["❌ Non Pagata", "💰 Pagata"])
             
             if st.form_submit_button("💾 SALVA NEL DATABASE"):
@@ -39,8 +36,8 @@ try:
                         "Cliente": cliente,
                         "Attività": attivita,
                         "Ore": float(ore),
-                        "Tariffa": float(tariffa),
-                        "Totale": float(ore * tariffa),
+                        "Tariffa Oraria": float(tariffa_h),
+                        "Totale": float(ore * tariffa_h),
                         "Stato": stato
                     }])
                     df = pd.concat([df, nuova_riga], ignore_index=True)
@@ -48,59 +45,53 @@ try:
                     st.success(f"Pratica per {cliente} salvata!")
                     st.rerun()
                 else:
-                    st.error("Inserisci il nome del cliente per salvare.")
+                    st.error("Inserisci il nome del cliente.")
 
     # --- 4. CALCOLI E METRICHE ---
     if not df.empty:
         st.divider()
-        # Assicuriamoci che i numeri siano trattati come tali
+        # Conversione sicura dei dati numerici
         df["Ore"] = pd.to_numeric(df["Ore"], errors='coerce').fillna(0)
+        df["Tariffa Oraria"] = pd.to_numeric(df["Tariffa Oraria"], errors='coerce').fillna(0)
         df["Totale"] = pd.to_numeric(df["Totale"], errors='coerce').fillna(0)
 
         m1, m2, m3 = st.columns(3)
-        m1.metric("Ore Totali", f"{df['Ore'].sum()} h")
-        m2.metric("Da Incassare", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
-        m3.metric("Incassato (Profitto)", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
+        m1.metric("Ore Totali Lavorate", f"{df['Ore'].sum()} h")
+        m2.metric("Crediti (Da Incassare)", f"{df[df['Stato'] == '❌ Non Pagata']['Totale'].sum():,.2f} €")
+        m3.metric("Profitti (Incassato)", f"{df[df['Stato'] == '💰 Pagata']['Totale'].sum():,.2f} €")
 
-        st.subheader("📋 Elenco Pratiche")
+        st.subheader("📋 Storico Prestazioni")
         
-        # Ricerca veloce
         cerca = st.text_input("🔍 Cerca cliente o attività...")
-        if cerca:
-            df_view = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)]
-        else:
-            df_view = df
+        df_view = df[df.apply(lambda r: cerca.lower() in r.astype(str).str.lower().values, axis=1)] if cerca else df
             
         st.dataframe(df_view, use_container_width=True, hide_index=True)
 
-        # --- 5. AZIONI: PAGATO ED ELIMINA ---
+        # --- 5. GESTIONE STATO E CANCELLAZIONE ---
         st.divider()
-        col_p, col_e = st.columns(2)
+        col_pag, col_del = st.columns(2)
 
-        with col_p:
-            st.subheader("✅ Segna come Pagato")
-            non_pagate = df[df["Stato"] == "❌ Non Pagata"]
-            if not non_pagate.empty:
-                idx_p = st.selectbox("Seleziona pratica saldata:", non_pagate.index, 
+        with col_pag:
+            st.subheader("✅ Gestione Pagamenti")
+            da_pagare = df[df["Stato"] == "❌ Non Pagata"]
+            if not da_pagare.empty:
+                idx_p = st.selectbox("Seleziona per segnare come pagato:", da_pagare.index, 
                                     format_func=lambda x: f"{df.at[x, 'Cliente']} - {df.at[x, 'Totale']}€")
-                if st.button("Conferma Pagamento"):
+                if st.button("Conferma Incasso"):
                     df.at[idx_p, "Stato"] = "💰 Pagata"
                     conn.update(data=df)
-                    st.success("Stato aggiornato!")
                     st.rerun()
             else:
-                st.write("Tutte le pratiche risultano pagate! 🎉")
+                st.info("Ottimo lavoro! Non ci sono pagamenti in sospeso.")
 
-        with col_e:
+        with col_del:
             st.subheader("🗑️ Elimina Pratica")
-            idx_e = st.selectbox("Seleziona riga da cancellare:", df.index, 
+            idx_e = st.selectbox("Seleziona riga da rimuovere:", df.index, 
                                 format_func=lambda x: f"{df.at[x, 'Cliente']} ({df.at[x, 'Data']})")
-            if st.button("Elimina Definitivamente", type="primary"):
+            if st.button("Elimina Voce", type="primary"):
                 df = df.drop(idx_e)
                 conn.update(data=df)
-                st.warning("Pratica eliminata.")
                 st.rerun()
 
 except Exception as e:
-    st.error(f"Errore di configurazione: {e}")
-    st.info("Assicurati che i Secrets siano impostati correttamente e che il file Google Sheets sia condiviso come Editor.")
+    st.error(f"Errore di connessione: {e}")
